@@ -3,11 +3,6 @@ package:
     version: 0.1.0
 source:
     path: ..
- #conda install python=3.9 numpy cython cmake ninja scikit-build conda-forge::gtest conda-forge::gmock pytest
- #       $ conda install dpnp -c dppy/label/dev -c /opt/intel/oneapi/conda_channel --override-channels
- #       $ conda install numba scipy scikit-learn spirv-tools
- #       $ conda install pybind11
- #       $ conda install dpcpp_linux-64 -c intel
 
 requirements:
     build:
@@ -16,36 +11,38 @@ requirements:
     host:
       - python
       - numpy {{ numpy }}
-      - cython
       - cmake
       - ninja
       - scikit-build
-#      - dpnp
+      - dpctl >=0.13
+      - pybind11
+    run:
+      - python
       - dpctl >=0.13
       - numba-dpex >=0.18.1
       - numba
-      - scipy
+      - numpy {{ numpy }}
       - scikit-learn
-      - spirv-tools
-      - pybind11
-#      - dpcpp_linux-64
-    run:
-      - python
-      - dpctl
       - {{ pin_compatible('numpy', min_pin="x", max_pin="x.x") }}
 
 build:
     number: 0
 
 test:
+    requires:
+      - dpctl >=0.13
+      - numba-dpex >=0.18.1
+      - numba
+      - numpy {{ numpy }}
+      - scikit-learn
     imports:
       - dpbench
     commands:
-      - python -c "import dpbench; dpbench.run_benchmarks()"
+      - python -c "import dpbench"
 
 about:
     home: https://github.com/IntelPython/dpbench
-    license: BSD-2-Clause
+    license: Apache 2.0
     license_file: LICENSE
     description: |
         <strong>LEGAL NOTICE: Use of this software package is subject to the
@@ -54,5 +51,9 @@ about:
         disclaimers or license terms for third party or open source software
         included in or with the software.</strong>
         <br/><br/>
-        EULA: <a href="https://opensource.org/licenses/BSD-2-Clause" target="_blank">BSD-2-Clause</a>
+        EULA: <a href="https://opensource.org/licenses/Apache-2.0" target="_blank">Apache-2.0</a>
         <br/><br/>
+extra:	        
+    recipe-maintainers:	        
+      - Diptorup Deb	            
+      - Mingjie Wang
