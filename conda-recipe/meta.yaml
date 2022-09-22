@@ -18,6 +18,7 @@ requirements:
       - pybind11
     run:
       - python
+      - dpcpp_linux-64 >=2022.1
       - dpctl >=0.13
       - numba-dpex >=0.18.1
       - numba
@@ -53,7 +54,7 @@ about:
         <br/><br/>
         EULA: <a href="https://opensource.org/licenses/Apache-2.0" target="_blank">Apache-2.0</a>
         <br/><br/>
-extra:	        
-    recipe-maintainers:	        
-      - Diptorup Deb	            
+extra:
+    recipe-maintainers:
+      - Diptorup Deb
       - Mingjie Wang
