@@ -23,6 +23,38 @@ def list_available_benchmarks():
 
     return submods
 
+def print_resutls(results, output_format):
+    if output_format == "text":
+        for result in results:
+            print("=========================================================")
+
+            if result.error_state == 0:
+                print("implementation:", result.benchmark_impl_postfix)
+                print("framework:", result.framework_name)
+                print("framework version:", result.framework_version)
+                print("setup time:", result.setup_time)
+                print("warmup time:", result.warmup_time)
+                print("teardown time:", result.teardown_time)
+                print("max execution times:", result.max_exec_time)
+                print("min execution times:", result.min_exec_time)
+                print("median execution times:", result.median_exec_time)
+                print("repeats:", result.num_repeats)
+                print("preset:", result.preset)
+                print("validated:", result.validation_state)
+            else:
+                print("implementation:", result.benchmark_impl_postfix)
+                print("error states:", result.error_state)
+                print("error msg:", result.error_msg)
+    elif output_format == "csv":
+        print("=========================================================")
+        print("implementation,framework,framework_version,setup_time,warmup_time,teardown_time,"
+                "max_execution_times,min_execution_times,median_execution_times,repeats,preset,validated")
+        for result in results:
+            if result.error_state == 0:
+                print(f"{result.benchmark_impl_postfix},{result.framework_name},{result.framework_version},{result.setup_time},"
+                        f"{result.warmup_time},{result.teardown_time},{result.max_exec_time},{result.min_exec_time},{result.median_exec_time},"
+                        f"{result.num_repeats},{result.preset},{result.validation_state}")
+
 
 def run_benchmark(
     bname,
@@ -33,6 +65,7 @@ def run_benchmark(
     repeat=10,
     validate=True,
     timeout=200.0,
+    output_format="text"
 ):
     print("")
     print("================ Benchmark " + bname + " ========================")
@@ -58,26 +91,8 @@ def run_benchmark(
             timeout=timeout,
         )
 
-        for result in results:
-            print("=========================================================")
+        print_resutls(results=results,output_format=output_format)
 
-            if result.error_state == 0:
-                print("implementation:", result.benchmark_impl_postfix)
-                print("framework:", result.framework_name)
-                print("framework version:", result.framework_version)
-                print("setup time:", result.setup_time)
-                print("warmup time:", result.warmup_time)
-                print("teardown time:", result.teardown_time)
-                print("max execution times:", result.max_exec_time)
-                print("min execution times:", result.min_exec_time)
-                print("median execution times:", result.median_exec_time)
-                print("repeats:", result.num_repeats)
-                print("preset:", result.preset)
-                print("validated:", result.validation_state)
-            else:
-                print("implementation:", result.benchmark_impl_postfix)
-                print("error states:", result.error_state)
-                print("error msg:", result.error_msg)
     except Exception as e:
         warnings.warn(
             "Benchmark execution failed due to the following error: "
@@ -93,6 +108,7 @@ def run_benchmarks(
     repeat=10,
     validate=True,
     timeout=200.0,
+    output_format="text"
 ):
     """Run all benchmarks in the dpbench benchmark directory
     Args:
@@ -118,6 +134,7 @@ def run_benchmarks(
             repeat=repeat,
             validate=validate,
             timeout=timeout,
+            output_format=output_format
         )
 
     print("")
