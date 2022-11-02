@@ -32,12 +32,12 @@ setup(
     },
     python_requires=">=3.8",
     include_package_data=True,
-    #install_requires=[
+    # install_requires=[
     #    "dpctl>=0.13",
     #    "numb-dpex>=0.18.1",
     #    "numba",
     #    "numpy",
     #    "scikit-learn",
-    #],
+    # ],
     cmake_args=["-DDpctl_INCLUDE_DIRS=" + dpctl_include_dir],
 )
