@@ -3,11 +3,39 @@
 # SPDX-License-Identifier: Apache 2.0 License
 
 import importlib
+import json
+import logging
+import pathlib
 import pkgutil
-import warnings
+from datetime import datetime
 
 import dpbench.benchmarks as dp_bms
 import dpbench.infrastructure as dpbi
+
+
+def _print_results(result):
+    print(
+        "================ implementation "
+        + result.benchmark_impl_postfix
+        + " ========================"
+    )
+    if result.error_state == 0:
+        print("implementation:", result.benchmark_impl_postfix)
+        print("framework:", result.framework_name)
+        print("framework version:", result.framework_version)
+        print("setup time:", result.setup_time)
+        print("warmup time:", result.warmup_time)
+        print("teardown time:", result.teardown_time)
+        print("max execution times:", result.max_exec_time)
+        print("min execution times:", result.min_exec_time)
+        print("median execution times:", result.median_exec_time)
+        print("repeats:", result.num_repeats)
+        print("preset:", result.preset)
+        print("validated:", result.validation_state)
+    else:
+        print("implementation:", result.benchmark_impl_postfix)
+        print("error states:", result.error_state)
+        print("error msg:", result.error_msg)
 
 
 def list_available_benchmarks():
@@ -24,103 +52,81 @@ def list_available_benchmarks():
     return submods
 
 
+def list_possible_implementations():
+
+    parent_folder = pathlib.Path(__file__).parent.absolute()
+    impl_postfix_json = parent_folder.joinpath("configs", "impl_postfix.json")
+
+    try:
+        with open(impl_postfix_json) as json_file:
+            info = json.load(json_file)["impl_postfix"]
+            impl_postfix_list = info.keys()
+            return impl_postfix_list
+    except Exception:
+        logging.exception(
+            "impl postfix JSON file {b} could not be opened.".format(
+                b="impl_post_fix.json"
+            )
+        )
+        raise
+
+
 def run_benchmark(
     bname,
+    implementation_postfix=None,
     fconfig_path=None,
     bconfig_path=None,
     preset="S",
-    repeat=1,
+    repeat=10,
     validate=True,
-    timeout=10.0,
+    timeout=200.0,
+    conn=None,
+    run_datetime=None,
+    print_results=True,
 ):
     print("")
     print("================ Benchmark " + bname + " ========================")
     print("")
-
+    bench = None
     try:
         benchmod = importlib.import_module("dpbench.benchmarks." + bname)
         bench = dpbi.Benchmark(benchmod, bconfig_path=bconfig_path)
-    except Exception as e:
-        warnings.warn(
+    except Exception:
+        logging.exception(
             "Skipping the benchmark execution due to the following error: "
-            + e.__str__
         )
         return
 
-    bench_impls = bench.get_impl_fnlist()
+    try:
+        results = bench.run(
+            implementation_postfix=implementation_postfix,
+            preset=preset,
+            repeat=repeat,
+            validate=validate,
+            timeout=timeout,
+            conn=conn,
+            run_datetime=run_datetime,
+        )
+        if print_results:
+            for result in results:
+                _print_results(result)
 
-    if not bench_impls:
-        warnings.warn(
-            "WARN: Skipping the benchmark "
-            + bname
-            + ". No implementations exist for the benchmark."
+    except Exception:
+        logging.exception(
+            "Benchmark execution failed due to the following error: "
         )
         return
-
-    fws = set()
-
-    # Create the needed Frameworks by looking at the benchmark
-    # implementations
-    # FIXME: Get the framework name from the framework JSON in the config
-    for bimpl in bench_impls:
-        if "_numba" in bimpl[0] and "_dpex" not in bimpl[0]:
-            fws.add(dpbi.NumbaFramework("numba"))
-        elif "_numpy" in bimpl[0]:
-            fws.add(dpbi.Framework("numpy"))
-        elif "_python" in bimpl[0]:
-            fws.add(dpbi.Framework("python"))
-        elif "_dpex" in bimpl[0]:
-            fws.add(dpbi.NumbaDpexFramework("numba_dpex", fconfig_path))
-        elif "_sycl" in bimpl[0]:
-            fws.add(dpbi.DpcppFramework("dpcpp", fconfig_path))
-        elif "_dpnp" in bimpl[0]:
-            # FIXME: dpnp framework needs to be fixed before uncommenting this
-            # step.
-            # fws.append(dpbi.DpnpFramework("dpnp"))
-            warnings.warn(
-                "DPNP Framework is broken, skipping dpnp implementation"
-            )
-            pass
-
-    # Check if a NumPy implementation of the benchmark is there. The
-    # NumPy implementation is used for validations.
-    fw_np = [fw for fw in fws if "numpy" in fw.fname or "python" in fw.fname]
-
-    if not fw_np:
-        warnings.warn(
-            "WARN: Skipping running "
-            + bname
-            + ". Missing NumPy implementation for the benchmark."
-        )
-        return
-
-    for fw in fws:
-        if fw not in fw_np:
-            test = dpbi.Test(bench=bench, frmwrk=fw, npfrmwrk=fw_np[0])
-            try:
-                test.run(
-                    preset=preset,
-                    repeat=repeat,
-                    validate=validate,
-                    timeout=timeout,
-                )
-            except Exception as e:
-                warnings.warn(
-                    "ERROR: Failed to test the "
-                    + fw.fname
-                    + " implementation for "
-                    + bname
-                    + ". The error is {}".format(e)
-                )
 
 
 def run_benchmarks(
     fconfig_path=None,
     bconfig_path=None,
     preset="S",
-    repeat=1,
+    repeat=10,
     validate=True,
-    timeout=10.0,
+    timeout=200.0,
+    dbfile=None,
+    print_results=True,
 ):
     """Run all benchmarks in the dpbench benchmark directory
     Args:
@@ -136,17 +142,31 @@ def run_benchmarks(
     print("===============================================================")
     print("")
     print("***Start Running DPBench***")
+    datetime_str = datetime.now().strftime("%m.%d.%Y_%H.%M.%S")
+    if not dbfile:
+        dbfile = "results_" + datetime_str + ".db"
+
+    conn = dpbi.create_connection(db_file=dbfile)
+    dpbi.create_results_table(conn)
+
+    impl_postfixes = list_possible_implementations()
 
     for b in list_available_benchmarks():
-        run_benchmark(
-            bname=b,
-            fconfig_path=fconfig_path,
-            bconfig_path=bconfig_path,
-            preset=preset,
-            repeat=repeat,
-            validate=validate,
-            timeout=timeout,
-        )
+
+        for impl in impl_postfixes:
+            run_benchmark(
+                bname=b,
+                implementation_postfix=impl,
+                fconfig_path=fconfig_path,
+                bconfig_path=bconfig_path,
+                preset=preset,
+                repeat=repeat,
+                validate=validate,
+                timeout=timeout,
+                conn=conn,
+                run_datetime=datetime_str,
+                print_results=print_results,
+            )
 
     print("")
     print("===============================================================")
@@ -155,6 +175,8 @@ def run_benchmarks(
     print("")
     print("===============================================================")
     print("")
+
+    dpbi.print_implementation_summary(conn=conn)
 
 
 def all_benchmarks_passed_validation(dbfile):

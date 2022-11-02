@@ -35,10 +35,6 @@ template <typename... Args> bool ensure_compatibility(const Args &...args)
             std::cerr << "All arrays need to be C contiguous.\n";
             return false;
         }
-        if (q != arr.get_queue()) {
-            std::cerr << "All arrays should be in same SYCL queue.\n";
-            return false;
-        }
         if (arr.get_typenum() != type_flag) {
             std::cerr << "All arrays should be of same elemental type.\n";
             return false;
@@ -92,5 +88,5 @@ PYBIND11_MODULE(_black_scholes_sycl, m)
     m.def("black_scholes", &black_scholes_sync,
           "DPC++ implementation of the Black-Scholes formula", py::arg("nopt"),
           py::arg("price"), py::arg("strike"), py::arg("t"), py::arg("rate"),
-          py::arg("vol"), py::arg("call"), py::arg("put"));
+          py::arg("volatility"), py::arg("call"), py::arg("put"));
 }
